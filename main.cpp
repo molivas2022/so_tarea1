@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <signal.h>
+#include <unistd.h>
 
 bool DEBUG_PARSER = true;
 
@@ -11,6 +13,19 @@ struct Command {
     string name;
     vector<string> args;
 };
+
+string read_input() {
+    cout << "$ ";
+    string input;
+    while (!getline(cin, input)) {
+        /* esta parte es pq recibir señales (como interceptar CTRL+C)
+        cancela la I/O de los procesos */
+        cin.clear();  
+        input.clear();
+    }
+    return input;
+}
+
 
 /*
 TODO: cuando se ingresan dos | | seguidos
@@ -64,11 +79,28 @@ vector<Command> parser(string inputstr) {
     return output;
 }
 
+/* intercepta CTRL+C */
+void handle_sigint(int signum) {
+    (void)signum;
+    return;
+}
+
 int main() {
-    while (true) {
-        cout << "$ ";
-        string input;
-        getline(cin, input);
-        parser(input);
+    struct sigaction sa;
+    sa.sa_handler = handle_sigint;
+    sa.sa_flags = 0; 
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
+
+    bool exit_called = false;
+    while (!exit_called) {
+        string input = read_input();
+        auto cmds = parser(input);
+        for (auto cmd: cmds) {
+            if (cmd.name == "exit") {
+                exit_called = true;
+            }
+        }
     }
+    cout << "bye bye!" << endl;
 }
