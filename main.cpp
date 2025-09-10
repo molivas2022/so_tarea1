@@ -18,6 +18,7 @@ using namespace std;
 struct Command {
     string name;
     vector<string> args;
+    bool first;
 };
 
 /* codigos con que puede terminar (mediante _exit()) un proceso */
@@ -61,9 +62,12 @@ vector<Command> parser(string inputstr) {
     {
     Command cmd;
     int mode = 0;
+    bool first = true;
     for (auto word: words) {
         if (mode == 0) {
             cmd.name = word;
+            cmd.first = first;
+            first = false;
             mode = 1;
         }
         else if (mode == 1) {
@@ -121,9 +125,20 @@ void process_command(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     }
     argv.push_back(nullptr);
 
-    /* decisión */
-    if (cmd.name.empty()) _exit(EXIT_OK);
+    /*
+    interpretación del comando
+    */
+    /* entrada vacia */
+    if (cmd.name.empty() && cmd.first) _exit(EXIT_OK);
+    /* exit */
     else if (cmd.name == "exit") _exit(EXIT_END_CALLED);
+    /* uso incorrecto de pipes */
+    else if (cmd.name == "|" || cmd.name.empty()) {
+        cerr << "Pipe operator used incorrectly. Use the following syntax:" << endl
+        << "[command 1] | [command 2] | ... | [command n]" << endl;
+        _exit(EXIT_ERROR);
+    }
+    /* comando custom: miprof */
     else if (cmd.name == "miprof") {
         cout <<
 "⠀⠀⠀⠀⠀⠀⠀⠀⣠⣤⠀⠀⠀⠀⠀⠀⠀⢠⣴⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" << endl <<
@@ -144,6 +159,7 @@ void process_command(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
 "⠀⠀⠼⠣⠜⠱⠌⠓⠜⠣⠜⠱⠈⠆⠡⠊⠱⠉⠗⠺⠳⠿⠿⠿⠿⠿⠿⠿⠿⠧" << endl;
         _exit(EXIT_OK);
     }
+    /* comandos built-in */
     else {
         execvp(argv[0], argv.data());
         if (errno == ENOENT) {
