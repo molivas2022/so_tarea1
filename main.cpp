@@ -20,6 +20,13 @@ struct Command {
     vector<string> args;
 };
 
+/* codigos con que puede terminar (mediante _exit()) un proceso */
+enum exit_codes {
+    EXIT_OK         = 0,
+    EXIT_ERROR      = 1,
+    EXIT_END_CALLED = 2,
+};
+
 /* lee entrada... wow */
 string read_input() {
     cout << "$ ";
@@ -114,11 +121,36 @@ void process_command(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     }
     argv.push_back(nullptr);
 
-    /* decisión 
-    TODO: aquí tendria sentido que estuviera el exit */
-    if (cmd.name.empty()) exit(0);
-    execvp(argv[0], argv.data());
-    exit(0);
+    /* decisión */
+    if (cmd.name.empty()) _exit(EXIT_OK);
+    else if (cmd.name == "exit") _exit(EXIT_END_CALLED);
+    else if (cmd.name == "miprof") {
+        cout <<
+"⠀⠀⠀⠀⠀⠀⠀⠀⣠⣤⠀⠀⠀⠀⠀⠀⠀⢠⣴⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" << endl <<
+"⠀⠀⠀⠀⠀⠀⠀⠀⢹⣿⠃⠀⠀⠀⠀⠀⠀⠀⣹⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" << endl <<
+"⠀⠀⠀⠀⠀⠀⠀⠀⠸⣏⠀⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" << endl <<
+"⠀⠀⠀⠀⠀⠀⠀⠀⣼⢻⣄⣀⣠⣀⣤⣤⣀⡀⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" << endl <<
+"⠀⠀⠀⠀⠀⠀⢠⣴⢏⣾⣿⣿⣿⣿⣿⣿⣿⣷⣿⣿⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀" << endl <<
+"⠀⠀⠀⠀⣠⣾⣿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀" << endl <<
+"⠀⣤⣶⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⡀⠀⠀" << endl <<
+"⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡗⠀⠀" << endl <<
+"⠀⢻⣿⣿⣿⣿⣿⣿⣿⠟⠛⠛⠛⠿⣿⣿⣿⣿⣿⣿⣿⠟⠛⠻⣿⣿⣿⠀⠀⠀" << endl <<
+"⠀⠈⣿⣿⣿⢿⣿⣿⣿⣷⣦⣤⣀⣀⣽⣿⣿⣿⣿⣿⣧⣀⣀⣤⣿⣿⣿⣇⠀⠀" << endl <<
+"⠀⠘⣿⡿⣼⢿⣯⣿⢿⣿⣿⣿⣿⣿⡯⡝⣎⢿⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⠂⠀" << endl <<
+"⠀⠀⣿⣹⣭⡟⡿⣞⡿⣯⣟⡿⣳⢷⡹⣜⠠⣈⠵⣯⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀" << endl <<
+"⠀⠀⠹⣯⣝⡳⣱⢛⡷⣻⢿⢷⣛⡬⢧⡙⠦⣉⠰⣹⢿⣿⣿⣿⣿⣿⣿⣿⠀⠀" << endl <<
+"⠀⠀⠀⢷⢮⡵⢣⢯⣜⣳⢻⣞⢧⡛⠴⣉⠰⣀⢆⡱⣺⣿⣿⣿⣿⣿⣿⣿⡇⠀" << endl <<
+"⠀⠀⠀⣾⡑⡎⣝⠲⡜⢆⡳⠜⣎⠿⣳⢭⡳⡵⢮⣷⣿⣿⣿⣿⣿⣿⣿⣿⣿⡀" << endl <<
+"⠀⠀⠼⠣⠜⠱⠌⠓⠜⠣⠜⠱⠈⠆⠡⠊⠱⠉⠗⠺⠳⠿⠿⠿⠿⠿⠿⠿⠿⠧" << endl;
+        _exit(EXIT_OK);
+    }
+    else {
+        execvp(argv[0], argv.data());
+        if (errno == ENOENT) {
+            cerr << "Command \"" << cmd.name << "\" doesn't exist." << endl;
+        }
+        _exit(EXIT_ERROR);
+    }
 }
 
 /*
@@ -128,15 +160,8 @@ gestiona las pipes entre comandos
 void process_all(vector<Command>& cmds, bool& exit_called) {
     int read_pipe[2] = { STDIN_FILENO, -1 };
     int write_pipe[2];
-    vector<pid_t> children;
 
     for (size_t i = 0; i < cmds.size(); i++) {
-        /* fin del programa
-        TODO: aquí no deberia estar */
-        if (cmds[i].name == "exit") {
-            exit_called = true;
-            break;
-        }
 
         /* nueva pipe de escritura */
         if (i < cmds.size() - 1) {
@@ -159,18 +184,25 @@ void process_all(vector<Command>& cmds, bool& exit_called) {
             /* pipes obsoletas */
             if (read_pipe[0] != STDIN_FILENO) close(read_pipe[0]);
             if (read_pipe[1] != -1) close(read_pipe[1]);
+
+            int status;
+            waitpid(c_pid, &status, 0);
+
+            if (WIFEXITED(status)) {
+                int exit_code = WEXITSTATUS(status);
+                if (exit_code == EXIT_ERROR) break;
+                if (exit_code == EXIT_END_CALLED) {
+                    exit_called = true;
+                    break;
+                }
+            }
+
             /* siguiente iteración */
             if (i < cmds.size() - 1) {
                 read_pipe[0] = write_pipe[0];
                 read_pipe[1] = write_pipe[1];
             }
-            children.push_back(c_pid);
         }
-    }
-
-    /* quema al padre alimenta al niño */
-    for (auto c_pid : children) {
-        waitpid(c_pid, nullptr, 0);
     }
 }
 
