@@ -4,16 +4,19 @@
 #include <sstream>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
-bool DEBUG_PARSER = true;
+bool DEBUG_PARSER = false;
 
 using namespace std;
 
+/* para almacenar cada comando y sus argumentos */
 struct Command {
     string name;
     vector<string> args;
 };
 
+/* lee entrada... wow */
 string read_input() {
     cout << "$ ";
     string input;
@@ -26,8 +29,9 @@ string read_input() {
     return input;
 }
 
-
 /*
+parsea la entrada devolviendo un vector de comandos (vease struct Command)
+
 TODO: cuando se ingresan dos | | seguidos
 TODO ?: cuando se ingresa | seguido del string vacio
 */
@@ -79,28 +83,59 @@ vector<Command> parser(string inputstr) {
     return output;
 }
 
-/* intercepta CTRL+C */
+/* intercepta CTRL+C para que no haga nada */
 void handle_sigint(int signum) {
     (void)signum;
     return;
 }
 
-int main() {
-    struct sigaction sa;
-    sa.sa_handler = handle_sigint;
-    sa.sa_flags = 0; 
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGINT, &sa, NULL);
+/* decide que hacer con cada comando */
+void process_commands(vector<Command>& cmds, bool& exit_called) {
+    for (auto cmd: cmds) {
+        if (cmd.name.empty()) continue;
+        if (cmd.name == "exit") {
+            exit_called = true;
+            break;
+        }
+        else {
+            pid_t c_pid = fork();
 
+            if (c_pid == 0) {
+                std::vector<char *> argv; /* hay que construir el arreglo c-style */
+                argv.push_back(const_cast<char *>(cmd.name.c_str()));
+                for (string arg: cmd.args) {
+                    argv.push_back(const_cast<char *>(arg.c_str()));
+                }
+                argv.push_back(nullptr);
+                execvp(argv[0], argv.data());
+            }
+            wait(nullptr);
+        }
+    }
+}
+
+/* al inicializarse configura todos los handlers de señales usados en el programa */
+/* ¿pq una clase y no una función? tiene variables que debe guardar, aunque no se usen */
+class Setup_signals {
+private:
+    struct sigaction sa;
+public:
+    Setup_signals() {
+        sa.sa_handler = handle_sigint;
+        sa.sa_flags = 0; 
+        sigemptyset(&sa.sa_mask);
+        sigaction(SIGINT, &sa, NULL);
+    }
+};
+
+/* ciclo principal */
+int main() {
+    Setup_signals();
     bool exit_called = false;
     while (!exit_called) {
         string input = read_input();
         auto cmds = parser(input);
-        for (auto cmd: cmds) {
-            if (cmd.name == "exit") {
-                exit_called = true;
-            }
-        }
+        process_commands(cmds, exit_called);
     }
     cout << "bye bye!" << endl;
 }
