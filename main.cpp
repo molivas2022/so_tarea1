@@ -6,6 +6,10 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+/*
+    TODO: comando 'cd' no funciona
+*/
+
 bool DEBUG_PARSER = false;
 
 using namespace std;
@@ -89,33 +93,91 @@ void handle_sigint(int signum) {
     return;
 }
 
-/* decide que hacer con cada comando */
-void process_commands(vector<Command>& cmds, bool& exit_called) {
-    for (auto cmd: cmds) {
-        if (cmd.name.empty()) continue;
-        if (cmd.name == "exit") {
+/* decide que hacer con un comando dado */
+void process_command(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
+
+    /* redireccionar a I/O estandar */
+    if (read_pipe[0] != STDIN_FILENO) {
+        dup2(read_pipe[0], STDIN_FILENO);
+        close(read_pipe[0]);
+    }
+    if (write_pipe[1] != STDOUT_FILENO) {
+        dup2(write_pipe[1], STDOUT_FILENO);
+        close(write_pipe[1]);
+    }
+
+    /* reconstruir los argumentos c-style */
+    vector<char *> argv;
+    argv.push_back(const_cast<char *>(cmd.name.c_str()));
+    for (string &arg : cmd.args) {
+        argv.push_back(const_cast<char *>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+
+    /* decisión 
+    TODO: aquí tendria sentido que estuviera el exit */
+    if (cmd.name.empty()) exit(0);
+    execvp(argv[0], argv.data());
+    exit(0);
+}
+
+/*
+gestiona que hacer con toda la secuencia de comandos entregada en una sola entrada
+gestiona las pipes entre comandos
+*/
+void process_all(vector<Command>& cmds, bool& exit_called) {
+    int read_pipe[2] = { STDIN_FILENO, -1 };
+    int write_pipe[2];
+    vector<pid_t> children;
+
+    for (size_t i = 0; i < cmds.size(); i++) {
+        /* fin del programa
+        TODO: aquí no deberia estar */
+        if (cmds[i].name == "exit") {
             exit_called = true;
             break;
         }
-        else {
-            pid_t c_pid = fork();
 
-            if (c_pid == 0) {
-                std::vector<char *> argv; /* hay que construir el arreglo c-style */
-                argv.push_back(const_cast<char *>(cmd.name.c_str()));
-                for (string arg: cmd.args) {
-                    argv.push_back(const_cast<char *>(arg.c_str()));
-                }
-                argv.push_back(nullptr);
-                execvp(argv[0], argv.data());
-            }
-            wait(nullptr);
+        /* nueva pipe de escritura */
+        if (i < cmds.size() - 1) {
+            pipe(write_pipe);
+        } else { /* la ultima pipe es la salida estandar */
+            write_pipe[0] = -1;
+            write_pipe[1] = STDOUT_FILENO;
         }
+
+        pid_t c_pid = fork();
+
+        if (c_pid == 0) {
+            /* el hijo lee la pipe anterior y escribe en la siguiente */
+            if (read_pipe[1] != -1) close(read_pipe[1]);
+            if (write_pipe[0] != -1) close(write_pipe[0]);
+            process_command(cmds[i], read_pipe, write_pipe);
+        } 
+
+        else {
+            /* pipes obsoletas */
+            if (read_pipe[0] != STDIN_FILENO) close(read_pipe[0]);
+            if (read_pipe[1] != -1) close(read_pipe[1]);
+            /* siguiente iteración */
+            if (i < cmds.size() - 1) {
+                read_pipe[0] = write_pipe[0];
+                read_pipe[1] = write_pipe[1];
+            }
+            children.push_back(c_pid);
+        }
+    }
+
+    /* quema al padre alimenta al niño */
+    for (auto c_pid : children) {
+        waitpid(c_pid, nullptr, 0);
     }
 }
 
-/* al inicializarse configura todos los handlers de señales usados en el programa */
-/* ¿pq una clase y no una función? tiene variables que debe guardar, aunque no se usen */
+/*
+al inicializarse configura todos los handlers de señales usados en el programa
+¿pq una clase y no una función? tiene variables que debe guardar, aunque no se usen
+*/
 class Setup_signals {
 private:
     struct sigaction sa;
@@ -135,7 +197,7 @@ int main() {
     while (!exit_called) {
         string input = read_input();
         auto cmds = parser(input);
-        process_commands(cmds, exit_called);
+        process_all(cmds, exit_called);
     }
     cout << "bye bye!" << endl;
 }
