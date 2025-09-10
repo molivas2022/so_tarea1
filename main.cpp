@@ -61,19 +61,18 @@ vector<Command> parser(string inputstr) {
     /* leer cada comando y sus argumentos */
     {
     Command cmd;
+    cmd.first = true;
     int mode = 0;
-    bool first = true;
     for (auto word: words) {
         if (mode == 0) {
             cmd.name = word;
-            cmd.first = first;
-            first = false;
             mode = 1;
         }
         else if (mode == 1) {
             if (word == "|") {
                 output.push_back(cmd);
                 cmd = Command();
+                cmd.first = false;
                 mode = 0;
                 continue;
             }
