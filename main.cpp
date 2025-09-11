@@ -10,6 +10,10 @@
 
 using namespace std;
 
+/*
+para llamar a programas externos (ej: ls, grep), importante manejar las pipes
+notar que comandos como 'cd' no son programas externos
+*/
 void process_external(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     pid_t c_pid = fork();
 
@@ -53,6 +57,9 @@ void process_external(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     }
 }
 
+/*
+wip
+*/
 void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     pid_t c_pid = fork();
 
