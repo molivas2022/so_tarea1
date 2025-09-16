@@ -15,3 +15,12 @@ void disable_ctrl_c(struct sigaction& sa) {
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL);
 }
+
+void miprof_alarm_handler(int sign);
+
+void activate_miprof_alarm(struct sigaction& sa) {
+    sa.sa_handler = miprof_alarm_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGALRM, &sa, NULL);
+}
