@@ -300,6 +300,7 @@ void pipeline(vector<Command>& cmds, bool& exit_called) {
 
 /* ciclo principal */
 int main() {
+    print_the_creature();
     struct sigaction sa;
     disable_ctrl_c(sa);
     /*TODO: ver porque no funciona el ALRM de los cojoneees*/
