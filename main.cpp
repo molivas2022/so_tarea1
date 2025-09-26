@@ -21,7 +21,7 @@ pid_t miprof_child_pid = -1; /*esto para el alarm handler lo puedo utilizar*/
 para llamar a programas externos (ej: ls, grep), importante manejar las pipes
 notar que comandos como 'cd' no son programas externos
 */
-void process_external(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
+pid_t process_external(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     pid_t c_pid = fork();
 
     if (c_pid == 0) {
@@ -59,8 +59,7 @@ void process_external(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
         if (read_pipe[0] != STDIN_FILENO) close(read_pipe[0]);
         if (read_pipe[1] != -1) close(read_pipe[1]);
 
-        int status;
-        waitpid(c_pid, &status, 0);
+        return c_pid;
     }
 }
 
@@ -250,27 +249,31 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
 /*
 decide que hacer con un comando
 */
-void process(Command& cmd, bool& exit_called,
+pid_t process(Command& cmd, bool& exit_called,
              int (&read_pipe)[2], int (&write_pipe)[2]) {
     if (cmd.name.empty() && cmd.first) {
+        return -1;
     }
     else if (cmd.name == "exit") {
         exit_called = true;
+        return -1;
     }
     else if (cmd.name == "|" || cmd.name.empty()) {
         cerr << "Pipe operator used incorrectly. Use the following syntax:" << endl
         << "[command 1] | [command 2] | ... | [command n]" << endl;
+        return -1;
     }
     else if (cmd.name == "miprof") {
         /* wip */
         process_miprof(cmd, read_pipe, write_pipe);
+        return -1;
     }
     else if (cmd.name == "test") {
         save_new_texts();  
     }
     else {
         /* ejecutables externos (ejemplo: ls) */
-        process_external(cmd, read_pipe, write_pipe);
+        return process_external(cmd, read_pipe, write_pipe);
     }
 }
 
@@ -280,6 +283,8 @@ gestiona las pipes entre comandos
 void pipeline(vector<Command>& cmds, bool& exit_called) {
     int read_pipe[2] = { STDIN_FILENO, -1 };
     int write_pipe[2];
+
+    vector<pid_t> child_pids;
 
     for (size_t i = 0; i < cmds.size(); i++) {
 
@@ -291,7 +296,8 @@ void pipeline(vector<Command>& cmds, bool& exit_called) {
             write_pipe[1] = STDOUT_FILENO;
         }
 
-        process(cmds[i], exit_called, read_pipe, write_pipe);
+        pid_t pid = process(cmds[i], exit_called, read_pipe, write_pipe);
+        if (pid > 0) child_pids.push_back(pid);
         if (exit_called) break;
 
         /* siguiente iteración */
@@ -300,11 +306,17 @@ void pipeline(vector<Command>& cmds, bool& exit_called) {
             read_pipe[1] = write_pipe[1];
         }
     }
+
+    /* esperamos a todos los cabros chicos */
+    for (pid_t pid : child_pids) {
+        int status;
+        waitpid(pid, &status, 0);
+    }
 }
 
 /* ciclo principal */
 int main() {
-    print_the_creature();
+    //print_the_creature();
     struct sigaction sa;
     disable_ctrl_c(sa);
     /*TODO: ver porque no funciona el ALRM de los cojoneees*/
