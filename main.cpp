@@ -11,6 +11,7 @@
 #include "input.h"
 #include "utils.h"
 #include "signal.h"
+#include "tests.h"
 
 using namespace std;
 
@@ -263,6 +264,9 @@ void process(Command& cmd, bool& exit_called,
     else if (cmd.name == "miprof") {
         /* wip */
         process_miprof(cmd, read_pipe, write_pipe);
+    }
+    else if (cmd.name == "test") {
+        save_new_texts();  
     }
     else {
         /* ejecutables externos (ejemplo: ls) */

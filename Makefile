@@ -6,7 +6,7 @@ CXXFLAGS := -Wall -Wextra -std=c++17
 TARGET := main
 
 # Source files
-SRC := main.cpp
+SRC := main.cpp tests.cpp
 OBJ := $(SRC:.cpp=.o)
 
 # Build target
