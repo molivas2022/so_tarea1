@@ -48,3 +48,4 @@ main
 
 # result de miprof ejecsave
 *.txt
+*.csv

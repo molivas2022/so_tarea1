@@ -6,9 +6,11 @@
 
 const int MIN_ASCII = 97;
 const int MAX_ASCII = 122;
-const int INIT = 100000;
-const int STEP = INIT/2; 
-const int MAX = 1000000;
+
+const int LINE_LENGTH = 100;
+const int INIT_N = 0;
+const int STEP = 5000; 
+const int MAX_N = 500000;
 
 std::string generate_random_text(int chars) {
     std::string text;
@@ -22,9 +24,13 @@ std::string generate_random_text(int chars) {
 }
 
 void save_new_texts() {
-    for (int count = INIT; count <= MAX; count += STEP) {
+    int name = 1;
+    for (int count = INIT_N; count <= MAX_N; count += STEP) {
         std::ofstream file;
-        file.open("texts/test"+std::to_string(count)+".txt");
-        file << generate_random_text(count) << "\n";
+        file.open("texts/test"+std::to_string(name)+".txt", std::ofstream::trunc);
+        for (int i = 0; i < count; i++) {
+            file << generate_random_text(LINE_LENGTH) << "\n";
+        }
+        name++;
     }
 }

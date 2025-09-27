@@ -236,10 +236,19 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
         cout << results << endl;
 
         if (mode == "ejecsave") {
+            ofstream outcsv("last_profile.csv", ios::app);
+            if (!outcsv) {
+                cerr << "Log CSV no se pudo abrir." << endl;
+            } 
+            else {
+                outcsv << to_string(user_time) + "," + to_string(sys_time) + "," + to_string(real_time) + "," + to_string(max_rss) + "\n";
+            }
+
             ofstream outfile(save_file, ios::app);
             if (!outfile) {
                 cerr << "No se pudo abrir el archivo: " << save_file << endl;
-            } else {
+            } 
+            else {
                 outfile << results;
             }
         }
@@ -275,6 +284,7 @@ pid_t process(Command& cmd, bool& exit_called,
         /* ejecutables externos (ejemplo: ls) */
         return process_external(cmd, read_pipe, write_pipe);
     }
+    return 0;
 }
 
 /*
