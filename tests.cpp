@@ -1,6 +1,7 @@
 #include "tests.h"
 
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <string>
 
@@ -9,8 +10,8 @@ const int MAX_ASCII = 122;
 
 const int LINE_LENGTH = 100;
 const int INIT_N = 0;
-const int STEP = 5000; 
-const int MAX_N = 500000;
+const int STEP = 1000; 
+const int MAX_N = 100000;
 
 std::string generate_random_text(int chars) {
     std::string text;
@@ -25,6 +26,7 @@ std::string generate_random_text(int chars) {
 
 void save_new_texts() {
     int name = 1;
+    std::filesystem::create_directories("texts");
     for (int count = INIT_N; count <= MAX_N; count += STEP) {
         std::ofstream file;
         file.open("texts/test"+std::to_string(name)+".txt", std::ofstream::trunc);

@@ -19,4 +19,5 @@ $(TARGET): $(OBJ)
 
 # Clean build artifacts
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -f $(OBJ) $(TARGET) last_profile.csv profile.txt
+	rm -rf texts/

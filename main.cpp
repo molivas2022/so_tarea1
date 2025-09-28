@@ -125,7 +125,17 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     } 
     /*Aqui se deberian imprimir las intruciones*/
     else if (mode == "help") {
-        cout << "Aquí se deberian imprimir las intrucciones" << endl;
+        cout 
+            << "Programa tipo profiler integrado en la shell, el cual permite ejecutar cualquier comando \n"
+            << "o programa y capturar la información respecto al tiempo de ejecución en: tiempos de usuario,\n"
+            << "sistema y real junto con la información acerca del peak de memoria máxima residente.\n"
+            << "Los comandos disponibles son:\n"
+            << "- miprof ejec <comando> [args]: ejecuta y despliega en pantalla la información de tiempo del comando.\n"
+            << "- miprof ejecsave <filepath> <comando> [args]: ejecuta y escribe en un archivo la información\n"
+            << "de tiempo del comando.\n"
+            << "- miprof ejecmaxtime <segundos> <comando> [args]: ejecuta y despliega en pantalla la información\n"
+            << "al ejecutar un comando. En este caso la ejecución del comando tiene un tiempo máximo de ejecución\n"
+            << "que termina abruptamente el programa si lo excede.\n";
         return;
     } 
     else if (mode != "ejec") {
@@ -144,6 +154,9 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
         argv.push_back(const_cast<char *>(cmd.args[i].c_str()));
     }
     argv.push_back(nullptr);
+
+    struct rusage prev_usage;
+    getrusage(RUSAGE_CHILDREN, &prev_usage); /*obtiene memoria sobre hijo*/
 
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start); /*TODO: nose si monotonic es el mejor para este caso*/
@@ -207,8 +220,8 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
 
         /*calculo de tiempos y MAXRSS*/
         double real_time = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1e9;
-        double user_time = usage.ru_utime.tv_sec + usage.ru_utime.tv_usec / 1e6;
-        double sys_time  = usage.ru_stime.tv_sec  + usage.ru_stime.tv_usec  / 1e6;
+        double user_time = (usage.ru_utime.tv_sec + usage.ru_utime.tv_usec / 1e6) - (prev_usage.ru_utime.tv_sec + prev_usage.ru_utime.tv_usec / 1e6);
+        double sys_time  = (usage.ru_stime.tv_sec  + usage.ru_stime.tv_usec  / 1e6) - (prev_usage.ru_stime.tv_sec  + prev_usage.ru_stime.tv_usec  / 1e6);
         long max_rss = usage.ru_maxrss;
 
 
@@ -255,6 +268,8 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     }
 }
 
+void pipeline(vector<Command>&, bool&);
+
 /*
 decide que hacer con un comando
 */
@@ -277,6 +292,18 @@ pid_t process(Command& cmd, bool& exit_called,
         process_miprof(cmd, read_pipe, write_pipe);
         return -1;
     }
+    else if (cmd.name == "batchrun") {
+        ifstream commands;
+        commands.open(cmd.args[0]);
+        char buffer[256];
+        if (commands) {
+            while (!commands.eof()) {
+                commands.getline(buffer, 256);
+                auto cmds = parser(buffer);
+                pipeline(cmds, exit_called);
+            }
+        }
+    }
     else if (cmd.name == "test") {
         save_new_texts();  
     }
@@ -288,8 +315,8 @@ pid_t process(Command& cmd, bool& exit_called,
 }
 
 /*
-gestiona las pipes entre comandos
-*/
+   gestiona las pipes entre comandos
+   */
 void pipeline(vector<Command>& cmds, bool& exit_called) {
     int read_pipe[2] = { STDIN_FILENO, -1 };
     int write_pipe[2];

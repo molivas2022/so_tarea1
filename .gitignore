@@ -46,6 +46,5 @@
 # executables
 main
 
-# result de miprof ejecsave
-*.txt
-*.csv
+# carpeta de textos test
+texts/
