@@ -15,7 +15,7 @@
 
 using namespace std;
 
-pid_t miprof_child_pid = -1; /*esto para el alarm handler lo puedo utilizar*/
+pid_t miprof_child_pid = -1; /*esto para que el alarm handler lo pueda utilizar*/
 
 /*
 para llamar a programas externos (ej: ls, grep), importante manejar las pipes
@@ -96,7 +96,7 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     }
 
     string mode = cmd.args[0];
-    size_t arg_start_index = 1; /* quizas no la mejor forma jejeje */
+    size_t arg_start_index = 1;
     string save_file;
     int max_seconds = 0;
 
@@ -126,16 +126,16 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     /*Aqui se deberian imprimir las intruciones*/
     else if (mode == "help") {
         cout 
-            << "Programa tipo profiler integrado en la shell, el cual permite ejecutar cualquier comando \n"
+            << "\nPrograma tipo profiler integrado en la shell, el cual permite ejecutar cualquier comando \n"
             << "o programa y capturar la información respecto al tiempo de ejecución en: tiempos de usuario,\n"
             << "sistema y real junto con la información acerca del peak de memoria máxima residente.\n"
-            << "Los comandos disponibles son:\n"
-            << "- miprof ejec <comando> [args]: ejecuta y despliega en pantalla la información de tiempo del comando.\n"
+            << "Los comandos disponibles son:\n\n"
+            << "- miprof ejec <comando> [args]: ejecuta y despliega en pantalla la información de tiempo del comando.\n\n"
             << "- miprof ejecsave <filepath> <comando> [args]: ejecuta y escribe en un archivo la información\n"
-            << "de tiempo del comando.\n"
+            << "de tiempo del comando.\n\n"
             << "- miprof ejecmaxtime <segundos> <comando> [args]: ejecuta y despliega en pantalla la información\n"
             << "al ejecutar un comando. En este caso la ejecución del comando tiene un tiempo máximo de ejecución\n"
-            << "que termina abruptamente el programa si lo excede.\n";
+            << "que termina abruptamente el programa si lo excede.\n\n";
         return;
     } 
     else if (mode != "ejec") {
@@ -148,7 +148,7 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
         return;
     }
 
-    /* reconstruir los argumentos c-style, esta vez desde arg_start_index o.O*/
+    /* reconstruir los argumentos c-style, esta vez desde arg_start_index*/
     vector<char *> argv;
     for (size_t i = arg_start_index; i < cmd.args.size(); i++) {
         argv.push_back(const_cast<char *>(cmd.args[i].c_str()));
@@ -159,7 +159,7 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
     getrusage(RUSAGE_CHILDREN, &prev_usage); /*obtiene memoria sobre hijo*/
 
     struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start); /*TODO: nose si monotonic es el mejor para este caso*/
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     pid_t c_pid = fork();
 
@@ -187,7 +187,6 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
         }
         _exit(EXIT_ERROR);
 
-        // print_the_creature(); /*Algún dia la creatura revivira*/
     }
     else {
         /* PROCESO PADRE*/
@@ -200,21 +199,21 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
         /*temporizador para matar proceso*/
         if (mode == "ejecmaxtime" && max_seconds > 0) {
             signal(SIGALRM, miprof_alarm_handler); /*si se manda la señal de alarma, MATAR MATAR MATAR*/
-            alarm(max_seconds); /*10, 9, 8,....*/
+            alarm(max_seconds);
         }
 
         int status;
         waitpid(c_pid, &status, 0);
 
-        /*salvado por la campana...*/
+        /*Si se termina de ejecutar, la alarma se desactiva*/
         if (mode == "ejecmaxtime"){
             alarm(0); 
         }
         miprof_child_pid = -1;
 
-        clock_gettime(CLOCK_MONOTONIC, &end); /*TODO: nose si monotonic es el mejor para este caso*/
+        clock_gettime(CLOCK_MONOTONIC, &end);
 
-        /*ahora se viene lo chido (mide uso)*/
+        /*medir uso*/
         struct rusage usage;
         getrusage(RUSAGE_CHILDREN, &usage); /*obtiene memoria sobre hijo*/
 
@@ -239,7 +238,7 @@ void process_miprof(Command& cmd, int (&read_pipe)[2], int (&write_pipe)[2]) {
 
         string results =
                         "----------- Resultados -----------\n"
-                        "Comando: " + command_str + "\n" + /*quizas deberia ser todo el comando aquí jeje*/
+                        "Comando: " + command_str + "\n" +
                         "Tiempo de usuario: " + to_string(user_time) + " s\n" +
                         "Tiempo del sistema: " + to_string(sys_time) + " s\n" +
                         "Tiempo real: " + to_string(real_time) + " s\n" +
@@ -288,8 +287,11 @@ pid_t process(Command& cmd, bool& exit_called,
         return -1;
     }
     else if (cmd.name == "miprof") {
-        /* wip */
         process_miprof(cmd, read_pipe, write_pipe);
+        return -1;
+    }
+    else if (cmd.name == "glorp") {
+        print_the_creature();
         return -1;
     }
     else if (cmd.name == "batchrun") {
@@ -353,10 +355,8 @@ void pipeline(vector<Command>& cmds, bool& exit_called) {
 
 /* ciclo principal */
 int main() {
-    //print_the_creature();
     struct sigaction sa;
     disable_ctrl_c(sa);
-    /*TODO: ver porque no funciona el ALRM de los cojoneees*/
     activate_miprof_alarm(sa);
 
     bool exit_called = false;
