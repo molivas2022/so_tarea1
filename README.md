@@ -1,8 +1,8 @@
 # Tarea 1 Sistemas Operativos
 
-- Guillermo Oliva Orellana
-- Matías Olivas Henríquez
-- Fabián González Uribe
+- Guillermo Oliva Orellana [2022429887]
+- Matías Olivas Henríquez [2022421061]
+- Fabián González Uribe [2022434449]
 
 ## Compilación
 
@@ -19,3 +19,5 @@ Luego, se debe ejecutar el comando "batchrun cmds.txt" que prueba con la instruc
 
 - last\_profile.csv: Contiene los datos crudos de tiempo de usuario, sistema, real y memoria máxima residente para poder graficar los resultados
 - profile.txt: Contiene la salida de cada ejecución de "miprof" en los casos de prueba
+
+> Para obtener información sobre como utilizar `miprof` ejecutar `miprof help` en la shell.
